@@ -1,17 +1,11 @@
 {
-    "name": "com.kie.kie-aps-gate.Editor",
+    "name": "com.kie.kie-aps-gate.Runtime",
     "rootNamespace": "Kie.ApsGate",
     "references": [
-        "nadena.dev.ndmf",
-        "nadena.dev.ndmf.runtime",
         "VRC.SDK3A",
-        "VRC.SDKBase",
-        "nadena.dev.modular-avatar.core",
-        "com.kie.kie-aps-gate.Runtime"
+        "VRC.SDKBase"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

@@ -36,20 +36,23 @@ namespace Kie.ApsGate
         private const string FixParam = "APS_FixBody";
         private const string PrefKey = "ApsConstraintGate.Enabled";
 
-        /// 計測・切り分け用スイッチ。メニュー Tools/APS Gate/Enabled から切り替えられる。
+        private const string MenuPath = "Tools/kieApsGate/プロジェクト全体で有効化";
+
+        /// プロジェクト全体の既定。**既定はオフ**。
+        /// アバターに kieApsGate コンポーネントが付いていればそちらが優先される。
         public static bool Enabled
         {
-            get => EditorPrefs.GetBool(PrefKey, true);
+            get => EditorPrefs.GetBool(PrefKey, false);
             set => EditorPrefs.SetBool(PrefKey, value);
         }
 
-        [MenuItem("Tools/APS Gate/Enabled")]
+        [MenuItem(MenuPath)]
         private static void Toggle() => Enabled = !Enabled;
 
-        [MenuItem("Tools/APS Gate/Enabled", true)]
+        [MenuItem(MenuPath, true)]
         private static bool ToggleValidate()
         {
-            Menu.SetChecked("Tools/APS Gate/Enabled", Enabled);
+            Menu.SetChecked(MenuPath, Enabled);
             return true;
         }
 
@@ -70,8 +73,12 @@ namespace Kie.ApsGate
 
         private static void Apply(BuildContext ctx)
         {
-            if (!Enabled) return;
             var root = ctx.AvatarRootObject;
+
+            // コンポーネントが付いていればそれが優先。無ければプロジェクト全体の既定
+            // (既定はオフ)。つまり「入れただけでは何も起きない」。
+            var settings = root.GetComponentInChildren<ApsGateSettings>(true);
+            if (!(settings != null ? settings.gateEnabled : Enabled)) return;
 
             // APS のコンポーネントはこの時点で既に消費済みなので存在チェックはしない。
             var paths = CollectGatedPaths(root);
