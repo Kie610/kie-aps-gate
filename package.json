@@ -1,0 +1,19 @@
+{
+  "name": "com.kie.kie-aps-gate",
+  "displayName": "kieApsGate",
+  "version": "0.1.0-alpha",
+  "description": "Disables AvatarPoseSystem's clone-skeleton tracking constraints while the pose is not fixed, and re-enables them from APS_FixBody. Recovers roughly two thirds of the CPU cost APS adds at idle without touching APS itself.",
+  "unity": "2022.3",
+  "license": "MIT",
+  "author": {
+    "name": "Kie",
+    "email": "64377537+Kie610@users.noreply.github.com",
+    "url": "https://github.com/Kie610"
+  },
+  "changelogUrl": "https://github.com/Kie610/kie-aps-gate/blob/main/CHANGELOG.md",
+  "vpmDependencies": {
+    "com.vrchat.avatars": "^3.7.0",
+    "nadena.dev.ndmf": "^1.14.0",
+    "nadena.dev.modular-avatar": "^1.10.0"
+  }
+}
