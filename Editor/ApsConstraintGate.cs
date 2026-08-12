@@ -107,8 +107,22 @@ namespace Kie.ApsGate
             // APS 自身が `ap.transform.Find("WorldFix/FixRoot")` と決め打ちしている名前。
             var worldFix = FindWorldFix(root.transform);
             if (worldFix == null)
+            {
                 Debug.LogWarning("[APS Gate] WorldFix/FixRoot が見つかりません。" +
                                  "クローン骨格側はゲートせず続行します。");
+            }
+            else if (CountPhysBones(worldFix) is var pb && pb > 0)
+            {
+                // 非アクティブにした PhysBone は、戻した瞬間に現在の姿勢を捨てて
+                // レスト位置から初期化される。クローン骨格に PhysBone が入っていると
+                // 固定した瞬間に揺れものがレスト位置で固まる(実測: ツインテールを
+                // たわませた状態で固定 → レスト位置へスナップ)。
+                // ここは個別 constraint と違って一括で落としていたため素通しだった。
+                Debug.LogWarning(
+                    $"[APS Gate] クローン骨格 '{PathOf(worldFix, root.transform)}' に PhysBone が "
+                    + $"{pb} 個あるためゲートしません。"
+                    + "非アクティブにすると固定時に揺れものがレスト位置で固まります。");
+            }
             else
             {
                 worldFix.gameObject.SetActive(false);
@@ -198,6 +212,17 @@ namespace Kie.ApsGate
                 .Count(b => b != null && b.enabled && ConstraintTypes.Contains(b.GetType().Name));
         }
 
+        /// サブツリー内の PhysBone / Collider の数。
+        /// **enabled は見ない。** 編集時に無効でも、APS がアニメーションで有効化する
+        /// ことがあるため、1 個でもあれば落とさない判断にする。
+        private static int CountPhysBones(Transform t)
+        {
+            return t.GetComponentsInChildren<Component>(true)
+                .Count(c => c != null
+                            && (c.GetType().Name == "VRCPhysBone"
+                                || c.GetType().Name == "VRCPhysBoneCollider"));
+        }
+
         /// 落として安全か。見た目や物理を持つものは触らない。
         private static bool IsSafeToGate(Transform t)
         {
@@ -209,9 +234,12 @@ namespace Kie.ApsGate
                     n == "ParticleSystem" || n == "Light" || n == "Camera" ||
                     n == "Animator" || n == "AudioSource")
                     return false;
-                // 静止時に動いている PhysBone があるなら止めてはいけない
-                if ((n == "VRCPhysBone" || n == "VRCPhysBoneCollider") &&
-                    c is Behaviour b && b.enabled)
+                // PhysBone があるなら止めてはいけない。**enabled は見ない。**
+                // 0.2.0-alpha までは enabled なものだけ弾いていたが、APS のクローン骨格の
+                // PhysBone は編集時に無効で、固定時にアニメーションで有効化される。
+                // 非アクティブのまま戻すと現在の姿勢を捨ててレスト位置から初期化されるので、
+                // 固定した瞬間に揺れものが固まる。
+                if (n == "VRCPhysBone" || n == "VRCPhysBoneCollider")
                     return false;
             }
             return true;
