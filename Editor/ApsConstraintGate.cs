@@ -80,6 +80,8 @@ namespace Kie.ApsGate
             var settings = root.GetComponentInChildren<ApsGateSettings>(true);
             if (!(settings != null ? settings.gateEnabled : Enabled)) return;
 
+            bool allowPb = settings != null && settings.gatePhysBoneSubtrees;
+
             // APS のコンポーネントはこの時点で既に消費済みなので存在チェックはしない。
             var paths = CollectGatedPaths(root);
 
@@ -94,11 +96,12 @@ namespace Kie.ApsGate
             if (paths.Count == 0) return;
 
             var gated = new List<string>();
+            var gatedRoots = new List<Transform>();
             foreach (var path in paths)
             {
                 var t = root.transform.Find(path);
-                if (t == null || !IsSafeToGate(t)) continue;
-                t.gameObject.SetActive(false);
+                if (t == null || !IsSafeToGate(t, allowPb)) continue;
+                gatedRoots.Add(t);
                 gated.Add(path);
             }
 
@@ -111,7 +114,7 @@ namespace Kie.ApsGate
                 Debug.LogWarning("[APS Gate] WorldFix/FixRoot が見つかりません。" +
                                  "クローン骨格側はゲートせず続行します。");
             }
-            else if (CountPhysBones(worldFix) is var pb && pb > 0)
+            else if (!allowPb && CountPhysBones(worldFix) is var pb && pb > 0)
             {
                 // 非アクティブにした PhysBone は、戻した瞬間に現在の姿勢を捨てて
                 // レスト位置から初期化される。クローン骨格に PhysBone が入っていると
@@ -121,13 +124,33 @@ namespace Kie.ApsGate
                 Debug.LogWarning(
                     $"[APS Gate] クローン骨格 '{PathOf(worldFix, root.transform)}' に PhysBone が "
                     + $"{pb} 個あるためゲートしません。"
-                    + "非アクティブにすると固定時に揺れものがレスト位置で固まります。");
+                    + "非アクティブにすると固定時に揺れものがレスト位置で固まります。"
+                    + "(kieApsGate の「PhysBone を含むサブツリーもゲートする」で有効化できます)");
             }
             else
             {
-                worldFix.gameObject.SetActive(false);
+                gatedRoots.Add(worldFix);
                 gated.Add(PathOf(worldFix, root.transform));
                 Debug.Log($"[APS Gate] クローン骨格 '{PathOf(worldFix, root.transform)}' もゲート");
+            }
+
+            // ゲート対象に PhysBone が入るなら、復帰時に姿勢を捨てないよう
+            // resetWhenDisabled を倒しておく。SetActive の前に行うこと。
+            if (allowPb)
+            {
+                int forced = gatedRoots.Sum(ForceNoResetWhenDisabled);
+                if (forced > 0)
+                    Debug.Log($"[APS Gate] ゲート対象内の PhysBone {forced} 個を resetWhenDisabled=false に強制");
+            }
+
+            foreach (var t in gatedRoots) t.gameObject.SetActive(false);
+
+            // APS の揺れ物固定(APS_FixPB)を「その場の姿勢」で固めるための強制。
+            // ゲートとは独立した機能だが、同じ Fix フローの品質改善なのでここで行う。
+            if (settings != null && settings.freezePbAtCurrentPose)
+            {
+                int n = ForceNoResetWhenDisabled(root.transform);
+                Debug.Log($"[APS Gate] 揺れ物固定: アバター全体の PhysBone {n} 個を resetWhenDisabled=false に強制");
             }
 
             if (gated.Count == 0)
@@ -224,7 +247,7 @@ namespace Kie.ApsGate
         }
 
         /// 落として安全か。見た目や物理を持つものは触らない。
-        private static bool IsSafeToGate(Transform t)
+        private static bool IsSafeToGate(Transform t, bool allowPb)
         {
             foreach (var c in t.GetComponentsInChildren<Component>(true))
             {
@@ -239,10 +262,26 @@ namespace Kie.ApsGate
                 // PhysBone は編集時に無効で、固定時にアニメーションで有効化される。
                 // 非アクティブのまま戻すと現在の姿勢を捨ててレスト位置から初期化されるので、
                 // 固定した瞬間に揺れものが固まる。
-                if (n == "VRCPhysBone" || n == "VRCPhysBoneCollider")
+                // gatePhysBoneSubtrees のときは resetWhenDisabled を倒したうえで
+                // ゲートするので許可する。
+                if (!allowPb && (n == "VRCPhysBone" || n == "VRCPhysBoneCollider"))
                     return false;
             }
             return true;
+        }
+
+        /// サブツリー内の全 VRCPhysBone の resetWhenDisabled を false にする。戻り値は変更数。
+        private static int ForceNoResetWhenDisabled(Transform t)
+        {
+            int changed = 0;
+            foreach (var b in t.GetComponentsInChildren<Behaviour>(true))
+            {
+                if (b == null || b.GetType().Name != "VRCPhysBone") continue;
+                var f = b.GetType().GetField("resetWhenDisabled");
+                if (f == null) continue;
+                if ((bool)f.GetValue(b)) { f.SetValue(b, false); changed++; }
+            }
+            return changed;
         }
 
         private static string PathOf(Transform t, Transform root)
