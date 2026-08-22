@@ -1,8 +1,19 @@
-// AvatarPoseSystem が張るトラッキング用 constraint を、未固定中は
-// GameObject ごと非アクティブにして CPU を浮かせる NDMF プラグイン。
+// AvatarPoseSystem の後段に挟まる NDMF プラグイン。役割は 2 つ。
+//
+// 1. ゲート (CPU 削減): APS が張るトラッキング用 constraint を、未固定中は
+//    GameObject ごと非アクティブにして CPU を浮かせる。
+// 2. PB 固定品質: APS は全 PhysBone を `APS_PB` 子オブジェクトへ複製して元を破棄し、
+//    固定時にその複製を m_IsActive=0 で切る。resetWhenDisabled が ON の複製は
+//    **切られた瞬間にレスト位置へ戻ってから固まる** (ミルフィ実測: 39 個中 19 個が ON、
+//    変位の約 7 割を喪失)。APS が固定で切り替える複製に限って resetWhenDisabled を
+//    倒し、「固定した瞬間の形」で固まる・解除時はその姿勢から物理が再開する、へ直す。
+//    APS 作者自身がこの強制を一度実装しており (現在はコメントアウトで利用者判断に
+//    委ねられている)、後段から書くのは設計意図の範囲内。
 //
 // APS 本体には一切手を入れない。NDMF の AfterPlugin で後段に挟まるだけなので
-// APS が更新されても追従する。
+// APS が更新されても追従する。壊れる条件: APS が複製名 `APS_PB` を変える /
+// 切り替えを m_IsActive 以外にする / FixBody のパラメータ名を変える —
+// いずれも検出できず素通しになるだけで、アバターは壊さない (警告を出す)。
 //
 // == 対象の選び方(ここを間違えるとアバターが壊れる) ==
 // APS は「未固定=1 / 固定=0」で constraint の m_Enabled をアニメーションする。
@@ -82,6 +93,34 @@ namespace Kie.ApsGate
 
             bool allowPb = settings != null && settings.gatePhysBoneSubtrees;
 
+            // == PB 固定品質 (常時・ゲートとは独立) ==
+            // APS が固定時に m_IsActive で切り替える PhysBone 複製 (APS_PB) の
+            // resetWhenDisabled を倒す。ON のままだと「固定した瞬間にレスト位置へ
+            // 戻ってから固まる」。倒すと固定した瞬間の形で固まり、解除時はその姿勢から
+            // 物理が再開する (レストへは戻さない)。
+            // 対象は APS の生成クリップから引いた複製に限る — アバターの他の PhysBone
+            // (他ギミックがリセット前提で切り替えるもの) には触らない。
+            // アバター全体へ広げたい場合だけ freezePbAtCurrentPose を使う。
+            var pbPaths = CollectApsFixedPbPaths(root);
+            if (pbPaths.Count == 0)
+            {
+                Debug.LogWarning("[APS Gate] APS が固定時に切り替える PhysBone 複製 (APS_PB) が" +
+                                 "見つかりません。APS の版が想定と違う可能性があります" +
+                                 " (PB 固定品質の強制はスキップ。ゲートは続行)");
+            }
+            else
+            {
+                int frozen = 0;
+                foreach (var p in pbPaths)
+                {
+                    var t = root.transform.Find(p);
+                    if (t != null) frozen += ForceNoResetWhenDisabled(t);
+                }
+                Debug.Log($"[APS Gate] PB 固定品質: APS が切り替える複製 {pbPaths.Count} 箇所のうち " +
+                          $"{frozen} 個を resetWhenDisabled=false に強制" +
+                          " (固定した瞬間の形で固まり、解除時はその姿勢から再開)");
+            }
+
             // APS のコンポーネントはこの時点で既に消費済みなので存在チェックはしない。
             var paths = CollectGatedPaths(root);
 
@@ -160,7 +199,33 @@ namespace Kie.ApsGate
             }
 
             BuildGateLayer(ctx, root, gated);
-            Debug.Log($"[APS Gate] {gated.Count} 個のトラッキング constraint を {FixParam} でゲートしました");
+            // パスを出すのは切り分けのため — 件数だけだと「何が止まったのか」を
+            // あとから確かめる手段が無い (2026-08-23 の調査で困った)
+            Debug.Log($"[APS Gate] {gated.Count} 個のトラッキング constraint を {FixParam} でゲートしました:\n  "
+                      + string.Join("\n  ", gated));
+        }
+
+        /// APS が固定時に m_IsActive で切り替える PhysBone 複製 (`APS_PB`) のパス。
+        /// constraint と同じく「1 にも 0 にもされている」ことを条件にする —
+        /// 片側しか無いものは切り替えではない。名前 `APS_PB` は APS が
+        /// `pb.transform.Find("APS_PB")` と決め打ちしている側の定数。
+        private static List<string> CollectApsFixedPbPaths(GameObject root)
+        {
+            var on = new HashSet<string>();
+            var off = new HashSet<string>();
+            foreach (var clip in AllClips(root))
+            {
+                foreach (var b in AnimationUtility.GetCurveBindings(clip))
+                {
+                    if (b.propertyName != "m_IsActive" || b.type != typeof(GameObject)) continue;
+                    if (b.path != "APS_PB" && !b.path.EndsWith("/APS_PB")) continue;
+                    var curve = AnimationUtility.GetEditorCurve(clip, b);
+                    if (curve == null || curve.length == 0) continue;
+                    (curve.keys[0].value > 0.5f ? on : off).Add(b.path);
+                }
+            }
+            on.IntersectWith(off);
+            return on.ToList();
         }
 
         /// APS の生成クリップから「m_Enabled を 1 にも 0 にもされている constraint」のパスを引く。

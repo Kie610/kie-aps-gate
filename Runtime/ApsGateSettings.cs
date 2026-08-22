@@ -22,8 +22,9 @@ namespace Kie.ApsGate
         public bool gatePhysBoneSubtrees = false;
 
         [Tooltip("アバター全体の PhysBone の Reset When Disabled をオフにする。" +
-                 "APS の揺れ物固定が、レスト位置へ戻らず「その場の姿勢」で固まるようになる。" +
-                 "PhysBone がリセットされる前提の他ギミックがある場合はオフにすること。")]
+                 "APS が固定で切り替えるぶんは、ゲート有効時は設定に関わらず常にその場の姿勢で" +
+                 "固まる。これはそれをアバター全体 (他ギミックの PhysBone 含む) へ広げる" +
+                 "オプション。PhysBone がリセットされる前提の他ギミックがある場合はオフのままにすること。")]
         public bool freezePbAtCurrentPose = false;
     }
 }
