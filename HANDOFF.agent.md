@@ -10,21 +10,13 @@ goal: APS の追従 constraint を未固定中だけ止め、固定時は揺れ�
 ## State
 
 complete:
-- C: [Unreleased] 凍結レイヤーの**永久凍結バグ修正** (実機 round 2 で発現)。Idle が
-  空クリップで m_Enabled を書き戻す者がいなかった → Idle 側で明示的に 1 を書き戻す。
-  併せて他ギミックが m_Enabled をアニメーションしている PB・ビルド時無効の PB を
-  対象から除外
-- C: **実機 A/B round 2 の結果** (ユーザー実施): 案1 (Immobile World 切替) は
-  対象・配管が正しい状態で**不発が確定** → 削除予定 (契約変更のため承認待ち)。
-  案2 (移動中凍結) は上記バグで判定不能 → 修正後の再テスト待ち
-- C: [Unreleased] 実験フラグ 2 本の **round 2 再実装** (既定オフ・実機 A/B 用)。
-  round 1 は実機で両方不発 — 原因は対象の取り違え (APS_WorldFix 配下の 73 個は
-  すべてポーズ操作ハンドルで、固定体の髪は**本体側 APS_PB 複製**が揺らしている)。
-  `immobilizeClonePhysBones` = APS_PB ごとに Immobile World / 1.0 の複製
-  (APSGate_PB_World) を作り、体固定中 (かつ PB 固定解除中) だけ FX レイヤー
-  (APSGatePbWorld) で交差切替。未固定時の通常挙動は不変 /
-  `freezeClonePbWhileMoving` = 凍結レイヤーを APS_PB + World 複製へ再照準
-  (しきい値 0.1 m/s / 15 deg/s は据え置き)。**A/B の結果が出るまでリリースしない**
+- C: [Unreleased] **実験フラグ 2 本を削除** (ユーザー判断・2026-08-23)。
+  実機 A/B の最終結果: 案1 (Immobile World 切替) = 不発確定 / 案2 (移動中凍結) =
+  バグ修正後は意図どおり動作したが **UX 上不採用** (動き出しの瞬間の慣性は
+  凍結が間に合わない + 「移動せず体の部位だけ動かす」場面が実用上まれ)。
+  機序と実測結論は **CHANGELOG [Unreleased] の「調査記録」が正本** (Immobile World は
+  世界固定ボーンへの慣性注入を打ち消さない / 残る道 = SDK フィードバック・
+  ExtraBone ワークフロー)。フィールド削除は契約変更だがユーザー承認済み・未リリース
 - C: 0.5.0-alpha (ローカル)。「ポーズを固定した瞬間に揺れものがレスト状態になる」を
   設定なしで直した回。APS が固定時に切り替える PhysBone 複製 (`APS_PB`) に限って
   `resetWhenDisabled` を自動で倒す (ゲート有効時の常時動作)。コンポーネント未設置
@@ -34,13 +26,19 @@ complete:
 
 verified:
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
+  (DevProject・unity-gate 経由); scope=実験フラグ削除後の回帰 (シナリオ A/B +
+  実ボーン切替の構造検証 49 constraint); counts=**12 / 12 PASS**
+- C: 2026-08-23 — kind=runtime(実機・ユーザー実施); scope=案2 (移動中凍結) の
+  バグ修正後の動作確認; 結果=「歩き出して止まる・立ち止まると動く」を確認 (動作は
+  正常)。そのうえで UX 判断により不採用
+- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
   (DevProject・unity-gate 経由); scope=round 2 の NDMF 実ビルド構造検証。
   A: 実ボーン切替 (_Const → fix 骨格) の constraint 49 個 = 機構読解の固定化 + 既存回帰 /
   C: APS_PB 40 : World 複製 40 の 1:1、World/1.0・reset 無効・既定非アクティブ 40/40、
   切替クリップ 80 カーブ (=2N)、凍結クリップ 80 カーブ (=APS_PB+World)、
   ハンドルへの World 強制ゼロ /
   D: DLC 併用 (ExtraBone + PropPlacer 実物) でも 1:1 維持・DLC ハンドル生成無傷;
-  counts=**32 / 32 PASS**。**実機での効果判定は未実施** (下記 not-run)
+  counts=**32 / 32 PASS** (シナリオ C/D は実験フラグ削除に伴い撤去済み — 履歴として残す)
 - C: 2026-08-23 — 実機 A/B round 1 (ユーザー実施): 両フラグとも**不発**。
   対象取り違えが原因 (Decisions 参照)。機構仮説 (Immobile World) の反証にはならない
 - C: 2026-08-23 — DLC 3 種 (ExtraBone 1.0.2 / PropPlacer 2.0.0 / AlterBody 2.1.0) を
@@ -63,19 +61,12 @@ verified:
   (固定中ドリフト 0.0°)。0.5.0-alpha の常時強制は同じ機構の適用範囲を変えただけ
 
 not-run:
-- U: **案2 (移動中凍結) の実機再テスト** (永久凍結バグ修正後)。手順:
-  `freezeClonePbWhileMoving` だけ ON (`immobilizeClonePhysBones` は OFF — 不発確定済み)
-  → アップロード → 体固定 + PB 固定解除 → 移動・回転中に固定体の髪が止まること /
-  **静止したら数秒以内に揺れが再開すること** (前回はここが永久に固まった) を確認
-  - 効けば案2採用 → 案1の削除と案2の扱い (実験卒業) をユーザーと確定
-  - 効かなければ kieApsGate では塞げない結論 → VRChat SDK へフィードバック
-    (最小再現: 素のアバター + MA World Fixed Object の箱 + 髪チェーン PB 1 本、
-    その場回転で流れる)。代替は ExtraBone ワークフロー (揺れ対象を手動でハンドル化)
-- U: PB 固定 (APS_FixPB) の ON/OFF を挟んだときの切替往復 (World⇄通常) で形が
-  破綻しないかの実機目視
-- U: 凍結しきい値 (0.1 m/s / 15 deg/s) の実機調整。歩き出しの取りこぼし・
-  微動での発火があれば定数を直す
-- U: AlterBody 併用構成の検証 (Known limitations 参照。別アバターの用意が要る)
+- U: VRChat SDK へのフィードバック (任意・ユーザー判断)。最小再現: 素のアバター +
+  MA World Fixed Object の箱 + 髪チェーン PB 1 本、その場回転で流れる
+- U: README への追記 (提案中・未承認): (a) APS の「PB 固定」はアバターの全 PhysBone を
+  止めること + 残したい PB は APS 標準の除外設定 (UnfixPhysBones /
+  UnfixPhysBonesWithChildren / UnfixObjects) を使うこと、
+  (b) `freezePbAtCurrentPose` は除外設定と無関係にアバター全体へ掛かる注意
 
 ## Decisions
 
@@ -108,6 +99,11 @@ not-run:
   にする (静的に World へ変えると未固定時の通常の髪挙動まで変わるため — APS 作者が
   直さない理由もおそらくこれ)。フィールド名は同名のまま再実装 (未リリースのため
   契約変更に当たらない。「分身の PB」という意味は固定体=実 PB と分かった今むしろ正確)
+- C: 2026-08-23 — **分身慣性問題は「kieApsGate では対策を載せない」で決着**
+  (ユーザー判断)。案1 Immobile World 切替 = 実機で不発確定 (Immobile World は
+  世界固定ボーンへの慣性注入を打ち消さない — 実測)。案2 移動中凍結 = 動作したが
+  UX 上不採用 (動き出しの瞬間は凍結が間に合わない + 対象場面が実用上まれ)。
+  両フラグ削除済み。機序と結論の正本は CHANGELOG [Unreleased] の「調査記録」
 - C: 2026-08-23 — ユーザー仮説の採否: 「ExtraBone があれば PB 固定は不要」=不採用
   (APS_PB 複製は凍結/解凍切替の実装手段で必要) / 「PB 固定解除の目的=矛盾解消」=
   一部採用 (「全 PB 一律複製は過剰」は不採用) / 「調整したい PB にだけ ExtraBone」=
