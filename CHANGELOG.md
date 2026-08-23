@@ -2,7 +2,17 @@
 
 このファイルの書式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に従う。
 
-## [Unreleased]
+## [1.0.0-beta]
+
+初の beta。**0.5.0-alpha は Release を作らなかったため、その内容も本版に含まれる**
+（「ポーズを固定した瞬間に揺れものがレスト状態になる」の修正。詳細は下の
+0.5.0-alpha の節）。0.4.0-alpha からの更新となる。
+
+このバージョンで**機能の追加は終了**する。以後は保守のみ（APS 側の更新への追従と
+不具合修正）。kieApsGate の役割は「APS の仕様を壊さず軽量化する」ことに限る。
+
+- 実測: 通常状態（未固定）で **-3.14 ms/frame**（10.93 → 7.79、止めた constraint 51 個）
+- ExtraBone / PropPlacer 併用のビルド検証済み
 
 ### Removed
 
