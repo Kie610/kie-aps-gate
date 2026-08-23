@@ -45,6 +45,8 @@ namespace Kie.ApsGate
 
         private const string ApsPlugin = "ZeroFactory.AvatarPoseSystem.NDMF";
         private const string FixParam = "APS_FixBody";
+        private const string FixPbParam = "APS_FixPB";
+        private const string WorldCopyName = "APSGate_PB_World";
         private const string PrefKey = "ApsConstraintGate.Enabled";
 
         private const string MenuPath = "Tools/kieApsGate/プロジェクト全体で有効化";
@@ -173,26 +175,30 @@ namespace Kie.ApsGate
                 Debug.Log($"[APS Gate] クローン骨格 '{PathOf(worldFix, root.transform)}' もゲート");
             }
 
-            // == 実験 (A/B): 分身の揺れものが本体の移動・回転を慣性として拾う問題 ==
-            // 機序の仮説: MA のワールド固定は constraint で見た目の位置を打ち消すだけで
-            // Transform の親は本体のまま。PhysBone が constraint 補正前の親の変換
-            // (または注入される playspace 移動量) を慣性として読むと、本体の回転で
-            // r×ω の接線流れが出る。DLL 非公開のため実機 A/B でしか判定できない。
-            if (worldFix != null && settings != null && settings.immobilizeClonePhysBones)
+            // == 実験 (A/B round 2): 固定体の揺れものが本体の移動・回転を慣性として拾う問題 ==
+            // 機序 (2026-08-23 のコード読解で確定): APS の体固定は実ボーンの駆動元を
+            // clone 骨格 → 世界固定の fix 骨格へ constraint で切り替える。つまり
+            // **固定体 = 実メッシュ + 実 PhysBone (APS_PB 複製)** で、歩き続けるのは
+            // ゴーストのプロキシ体。アバタールートは動き続けるため、PB のアバター空間
+            // シミュレーションが移動・回転を慣性として注入する。
+            // round 1 は APS_WorldFix 配下 (= ポーズ操作ハンドル。揺れもの複製ではない)
+            // を対象にしており不発だった — 正しい対象はここで集めた APS_PB 複製。
+            if (settings != null &&
+                (settings.immobilizeClonePhysBones || settings.freezeClonePbWhileMoving))
             {
-                // 案1: Immobile World。AllMotion の基準は「root の親」で、分身では
-                // constraint 補正済み = 測る動きが無いため効かない。World の基準は
-                // シーンルートで、ワールド固定小物の定石はこちら (公式: "negates only
-                // positional movement from the reference of the scene root transform")
-                int n = ForceImmobileWorld(worldFix);
-                Debug.Log($"[APS Gate] 実験: 分身側の PhysBone {n} 個を Immobile World / 1.0 へ強制");
-            }
-            if (worldFix != null && settings != null && settings.freezeClonePbWhileMoving)
-            {
-                // 案2: 移動・回転中だけ分身 PB を凍結。機構に依存せず症状を止める
-                // フォールバック。resetWhenDisabled は上で強制オフ済みなので、
-                // 凍結解除時は止まった瞬間の形から再開する
-                BuildMotionFreezeLayer(ctx, root, worldFix);
+                var apsPbs = pbPaths.Select(p => root.transform.Find(p))
+                    .Where(t => t != null).ToList();
+                if (apsPbs.Count == 0)
+                {
+                    Debug.LogWarning("[APS Gate] 実験: APS_PB 複製が見つからないため何もしません");
+                }
+                else
+                {
+                    if (settings.immobilizeClonePhysBones)
+                        BuildPbWorldSwitch(ctx, root, apsPbs);
+                    if (settings.freezeClonePbWhileMoving)
+                        BuildMotionFreezeLayer(ctx, root, apsPbs);
+                }
             }
 
             // ゲート対象に PhysBone が入るなら、復帰時に姿勢を捨てないよう
@@ -357,36 +363,131 @@ namespace Kie.ApsGate
             return true;
         }
 
-        /// サブツリー内の全 VRCPhysBone の Immobile を World / 1.0 へ強制する。戻り値は変更数。
-        /// 分身 (APS 生成物) 限定で使う — 本体側は作者が部位ごとに調整しているため触らない。
-        private static int ForceImmobileWorld(Transform t)
+        /// 案1 (round 2): APS_PB ごとに Immobile World / 1.0 の複製 (APSGate_PB_World) を
+        /// 兄弟として作り、「体固定中かつ PB 固定解除」のときだけ World 版へ切り替える
+        /// 1 レイヤーを FX へ合流させる。未固定時は通常の APS_PB がそのまま使われるので、
+        /// 歩いているときの髪の挙動は変わらない。
+        /// APS が APS_PB の m_IsActive を握るのは PB 固定 (APS_FixPB) 側で、こちらの
+        /// レイヤーは後から合流して切替中だけ上書きする (Normal 状態では APS_PB に触らない)。
+        /// APS_FixPB のパラメータ名が変わった場合は World 版が有効にならないだけで壊れない。
+        private static void BuildPbWorldSwitch(BuildContext ctx, GameObject root, List<Transform> apsPbs)
         {
-            int changed = 0;
-            foreach (var b in t.GetComponentsInChildren<Behaviour>(true))
+            var normal = new AnimationClip { name = "APSGate_PbWorldOff" };
+            var world = new AnimationClip { name = "APSGate_PbWorldOn" };
+            int made = 0;
+            foreach (var t in apsPbs)
             {
-                if (b == null || b.GetType().Name != "VRCPhysBone") continue;
-                var typeField = b.GetType().GetField("immobileType");
-                var valueField = b.GetType().GetField("immobile");
-                if (typeField == null || valueField == null) continue;
-                typeField.SetValue(b, System.Enum.Parse(typeField.FieldType, "World"));
-                valueField.SetValue(b, 1f);
-                changed++;
+                var pb = t.GetComponents<Behaviour>()
+                    .FirstOrDefault(b => b != null && b.GetType().Name == "VRCPhysBone");
+                if (pb == null || t.parent == null) continue;
+                if (t.parent.Find(WorldCopyName) != null) continue;
+
+                var objW = new GameObject(WorldCopyName);
+                objW.transform.SetParent(t.parent, false);
+                var copy = (Behaviour)objW.AddComponent(pb.GetType());
+                EditorUtility.CopySerialized(pb, copy);
+
+                var typeField = copy.GetType().GetField("immobileType");
+                var valueField = copy.GetType().GetField("immobile");
+                var resetField = copy.GetType().GetField("resetWhenDisabled");
+                if (typeField != null) typeField.SetValue(copy, System.Enum.Parse(typeField.FieldType, "World"));
+                if (valueField != null) valueField.SetValue(copy, 1f);
+                if (resetField != null) resetField.SetValue(copy, false);
+
+                // どちらの複製も、相手と自分のマーカーオブジェクトをチェーンから除外する
+                // (APS_PB が APS 自身によって除外されているのと同じ理由)
+                AddIgnoreTransform(pb, objW.transform);
+                AddIgnoreTransform(copy, objW.transform);
+
+                objW.SetActive(false);
+
+                string pW = PathOf(objW.transform, root.transform);
+                normal.SetCurve(pW, typeof(GameObject), "m_IsActive", AnimationCurve.Constant(0f, 0f, 0f));
+                world.SetCurve(pW, typeof(GameObject), "m_IsActive", AnimationCurve.Constant(0f, 0f, 1f));
+                world.SetCurve(PathOf(t, root.transform), typeof(GameObject), "m_IsActive",
+                    AnimationCurve.Constant(0f, 0f, 0f));
+                made++;
             }
-            return changed;
+            if (made == 0)
+            {
+                Debug.LogWarning("[APS Gate] 実験: World 切替の対象を作れませんでした");
+                return;
+            }
+
+            var ac = new AnimatorController { name = "APSGatePbWorld" };
+            ac.AddParameter(FixParam, AnimatorControllerParameterType.Bool);
+            ac.AddParameter(FixPbParam, AnimatorControllerParameterType.Bool);
+            ac.AddLayer("APSGatePbWorld");
+            var sm = ac.layers[0].stateMachine;
+
+            var sNormal = sm.AddState("Normal", new Vector2(300, 0));
+            sNormal.motion = normal;
+            sNormal.writeDefaultValues = false;
+            var sWorld = sm.AddState("World", new Vector2(300, 80));
+            sWorld.motion = world;
+            sWorld.writeDefaultValues = false;
+            sm.defaultState = sNormal;
+
+            var toWorld = sNormal.AddTransition(sWorld);
+            toWorld.hasExitTime = false;
+            toWorld.duration = 0f;
+            toWorld.AddCondition(AnimatorConditionMode.If, 0, FixParam);
+            toWorld.AddCondition(AnimatorConditionMode.IfNot, 0, FixPbParam);
+            var unfix = sWorld.AddTransition(sNormal);
+            unfix.hasExitTime = false;
+            unfix.duration = 0f;
+            unfix.AddCondition(AnimatorConditionMode.IfNot, 0, FixParam);
+            var pbFix = sWorld.AddTransition(sNormal);
+            pbFix.hasExitTime = false;
+            pbFix.duration = 0f;
+            pbFix.AddCondition(AnimatorConditionMode.If, 0, FixPbParam);
+
+            var layers = ac.layers;
+            layers[0].defaultWeight = 1f;
+            ac.layers = layers;
+
+            ctx.AssetSaver.SaveAsset(normal);
+            ctx.AssetSaver.SaveAsset(world);
+            ctx.AssetSaver.SaveAsset(ac);
+            foreach (var l in ac.layers) ctx.AssetSaver.SaveAsset(l.stateMachine);
+
+            var holder = new GameObject("APSGatePbWorld");
+            holder.transform.SetParent(root.transform, false);
+            var merge = holder.AddComponent<ModularAvatarMergeAnimator>();
+            merge.animator = ac;
+            merge.layerType = VRCAvatarDescriptor.AnimLayerType.FX;
+            merge.deleteAttachedAnimator = true;
+            merge.pathMode = MergeAnimatorPathMode.Absolute;
+            merge.matchAvatarWriteDefaults = false;
+
+            Debug.Log($"[APS Gate] 実験: APS_PB {made} 個へ Immobile World 複製 ({WorldCopyName}) を作り、" +
+                      "体固定中 (PB 固定解除時) だけ切り替えるレイヤーを追加");
         }
 
-        /// 自分が移動・回転している間だけ、分身側の PhysBone (m_Enabled) を切る 1 レイヤー。
+        /// リスト型フィールド ignoreTransforms へ Transform を追加する (重複は追加しない)
+        private static void AddIgnoreTransform(Behaviour pb, Transform t)
+        {
+            var f = pb.GetType().GetField("ignoreTransforms");
+            if (f == null || !(f.GetValue(pb) is System.Collections.IList list)) return;
+            if (!list.Contains(t)) list.Add(t);
+        }
+
+        /// 案2 (round 2): 自分が移動・回転している間だけ、固定体の PhysBone
+        /// (APS_PB 複製と、あれば World 複製) の m_Enabled を切る 1 レイヤー。
         /// 条件は Av3 組み込みの VelocityX/Y/Z (m/s) と AngularY (deg/s)。
-        /// 静止状態は空クリップで、APS 側の m_Enabled アニメーションへ干渉しない
+        /// 静止状態は空クリップで、APS 側のアニメーションへ干渉しない
         /// (後から合流するレイヤーが、凍結中だけ上書きする)。
-        private static void BuildMotionFreezeLayer(BuildContext ctx, GameObject root, Transform worldFix)
+        private static void BuildMotionFreezeLayer(BuildContext ctx, GameObject root, List<Transform> apsPbs)
         {
             // しきい値は実機調整前の設計値。歩き出し (~2 m/s) と振り向き (~180 deg/s) を
             // 確実に拾い、立ち話程度の微動では発火しない狙い
             const float VelT = 0.1f;
             const float AngT = 15f;
 
-            var pbs = worldFix.GetComponentsInChildren<Behaviour>(true)
+            var pbs = apsPbs
+                .SelectMany(t => new[] { t, t.parent != null ? t.parent.Find(WorldCopyName) : null })
+                .Where(t => t != null)
+                .SelectMany(t => t.GetComponents<Behaviour>())
                 .Where(b => b != null && b.GetType().Name == "VRCPhysBone")
                 .ToList();
             if (pbs.Count == 0) return;
@@ -463,7 +564,7 @@ namespace Kie.ApsGate
             merge.pathMode = MergeAnimatorPathMode.Absolute;
             merge.matchAvatarWriteDefaults = false;
 
-            Debug.Log($"[APS Gate] 実験: 移動・回転中の分身 PB 凍結レイヤーを追加 " +
+            Debug.Log($"[APS Gate] 実験: 移動・回転中に固定体の PB を凍結するレイヤーを追加 " +
                       $"(対象 {pbs.Count} 個・しきい値 {VelT} m/s / {AngT} deg/s)");
         }
 

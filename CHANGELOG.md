@@ -4,20 +4,35 @@
 
 ## [Unreleased]
 
-### 実験 (既定オフ・実機 A/B 用。結果が出るまでリリースしない)
+### 実験 round 2 (既定オフ・実機 A/B 用。結果が出るまでリリースしない)
 
-対象の症状: **分身 (固定体) の揺れものが、本体の移動・回転を慣性として拾う**
-(その場回転で、本体との距離を半径とする円の向きへ髪が流れる = 本体基準の座標系で
-慣性が評価されている)。分身側は既に Immobile AllMotion / 1.0 なのに出る。
+対象の症状: **分身 (固定体) の揺れものが、本体の移動・回転・急停止を慣性として拾う**。
 
-- **`immobilizeClonePhysBones`【実験】** — 分身側 PhysBone の Immobile を
-  **World / 1.0** へ強制する。AllMotion の基準は「root の親」で、分身では constraint
-  補正済み = 測る動きが無いため効かない。World の基準はシーンルートで、
-  ワールド固定小物の定石はこちら。本体側の PhysBone には触らない
-- **`freezeClonePbWhileMoving`【実験】** — 自分が移動・回転している間だけ分身側の
-  PhysBone を凍結する (Av3 の VelocityX/Y/Z・AngularY で判定。しきい値 0.1 m/s /
-  15 deg/s)。機構に関わらず症状を止めるフォールバック。移動中は分身の髪が
-  揺れなくなる代わりに、Reset When Disabled 強制オフ済みのため止まった形から再開する
+round 1 (旧 Unreleased) は実機で両方不発だった。原因は対象の取り違え:
+APS の体固定は「分身を作る」のではなく、**実ボーンの駆動元を constraint で
+世界固定の fix 骨格へ切り替える**構造だった (固定体 = 実メッシュ + 実 PhysBone。
+歩き続けるのはゴーストのプロキシ体)。round 1 が触っていた APS_WorldFix 配下の
+PhysBone 73 個はすべてポーズ操作用グラブハンドルで、固定体の髪をシミュレートして
+いるのは**本体側の APS_PB 複製 (39 個)** だった。アバタールート (ゴースト) が
+動き続けるため、PhysBone のアバター空間シミュレーションが移動・回転を慣性として
+注入する — これが症状の機序。
+
+- **`immobilizeClonePhysBones`【実験】** — APS_PB ごとに Immobile **World / 1.0** の
+  複製 (`APSGate_PB_World`) を作り、**体固定中 (かつ PB 固定解除中) だけ** World 版へ
+  切り替えるレイヤーを FX へ合流させる。固定体の髪は世界基準で評価され、本体の移動を
+  慣性として拾わなくなる想定。**未固定時 (歩いているとき) の髪の挙動は変わらない**
+- **`freezeClonePbWhileMoving`【実験】** — 自分が移動・回転している間だけ固定体の
+  PhysBone (APS_PB 複製と World 複製) を凍結する (Av3 の VelocityX/Y/Z・AngularY で
+  判定。しきい値 0.1 m/s / 15 deg/s)。機構に関わらず症状を止めるフォールバック。
+  移動中は固定体の髪が揺れなくなる代わりに、止まった形から再開する
+
+### Known limitations (実験)
+
+- AlterBody (分身 DLC) の APS_PB 複製も主ボディと同じ `APS_FixBody` / `APS_FixPB` で
+  切り替えてしまう (AlterBody 側は `APS_FixAlterPB` 系で動くため、厳密には区別が要る)。
+  AlterBody 併用構成は未検証
+- APS が `APS_FixPB` のパラメータ名を変えた場合、World 版が有効にならないだけで
+  アバターは壊れない
 
 ## [0.5.0-alpha]
 
