@@ -475,8 +475,10 @@ namespace Kie.ApsGate
         /// 案2 (round 2): 自分が移動・回転している間だけ、固定体の PhysBone
         /// (APS_PB 複製と、あれば World 複製) の m_Enabled を切る 1 レイヤー。
         /// 条件は Av3 組み込みの VelocityX/Y/Z (m/s) と AngularY (deg/s)。
-        /// 静止状態は空クリップで、APS 側のアニメーションへ干渉しない
-        /// (後から合流するレイヤーが、凍結中だけ上書きする)。
+        /// **Idle 側で m_Enabled=1 を明示的に書き戻す。** APS は APS_PB を GameObject の
+        /// m_IsActive で切り替えており、m_Enabled を書くレイヤーは他に存在しない。
+        /// Idle を空クリップにすると (writeDefaults=false のため) 一度凍結した瞬間から
+        /// 誰も 1 へ戻さず、永久に固まる (実機 round 2 で発現したバグ)。
         private static void BuildMotionFreezeLayer(BuildContext ctx, GameObject root, List<Transform> apsPbs)
         {
             // しきい値は実機調整前の設計値。歩き出し (~2 m/s) と振り向き (~180 deg/s) を
@@ -484,19 +486,32 @@ namespace Kie.ApsGate
             const float VelT = 0.1f;
             const float AngT = 15f;
 
+            // 他のギミックが m_Enabled をアニメーションしている PB に書くと取り合いになる
+            // (こちらが後勝ちで相手の意図を潰す) ので対象から外す。ビルド時点で無効な
+            // PB も外す (凍結する意味が無く、Idle で勝手に有効化してしまうため)
+            var externallyAnimated = new HashSet<string>();
+            foreach (var clip in AllClips(root))
+                foreach (var b in AnimationUtility.GetCurveBindings(clip))
+                    if (b.propertyName == "m_Enabled" && b.type != null && b.type.Name == "VRCPhysBone")
+                        externallyAnimated.Add(b.path);
+
             var pbs = apsPbs
                 .SelectMany(t => new[] { t, t.parent != null ? t.parent.Find(WorldCopyName) : null })
                 .Where(t => t != null)
                 .SelectMany(t => t.GetComponents<Behaviour>())
-                .Where(b => b != null && b.GetType().Name == "VRCPhysBone")
+                .Where(b => b != null && b.GetType().Name == "VRCPhysBone" && b.enabled
+                            && !externallyAnimated.Contains(PathOf(b.transform, root.transform)))
                 .ToList();
             if (pbs.Count == 0) return;
 
             var idle = new AnimationClip { name = "APSGate_FreezeIdle" };
             var freeze = new AnimationClip { name = "APSGate_FreezeOn" };
             foreach (var pb in pbs)
-                freeze.SetCurve(PathOf(pb.transform, root.transform), pb.GetType(),
-                    "m_Enabled", AnimationCurve.Constant(0f, 0f, 0f));
+            {
+                string path = PathOf(pb.transform, root.transform);
+                freeze.SetCurve(path, pb.GetType(), "m_Enabled", AnimationCurve.Constant(0f, 0f, 0f));
+                idle.SetCurve(path, pb.GetType(), "m_Enabled", AnimationCurve.Constant(0f, 0f, 1f));
+            }
 
             var ac = new AnimatorController { name = "APSGateMotionFreeze" };
             ac.AddParameter(FixParam, AnimatorControllerParameterType.Bool);
