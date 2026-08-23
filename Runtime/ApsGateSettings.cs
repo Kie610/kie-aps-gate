@@ -26,5 +26,17 @@ namespace Kie.ApsGate
                  "固まる。これはそれをアバター全体 (他ギミックの PhysBone 含む) へ広げる" +
                  "オプション。PhysBone がリセットされる前提の他ギミックがある場合はオフのままにすること。")]
         public bool freezePbAtCurrentPose = false;
+
+        [Header("実験 (分身の揺れものが本体の移動・回転に反応する問題の A/B)")]
+        [Tooltip("【実験】分身側 (クローン骨格) の PhysBone の Immobile を World / 1.0 へ強制する。" +
+                 "ワールド固定された物の揺れものが自分の移動で揺れる問題への、コミュニティ定石の適用。" +
+                 "本体側の PhysBone には触らない。効果は実機でのみ確認できる。")]
+        public bool immobilizeClonePhysBones = false;
+
+        [Tooltip("【実験】自分が移動・回転している間だけ、分身側の PhysBone を凍結する。" +
+                 "凍結中は分身の揺れものが完全に静止する (Reset When Disabled は強制オフ済みなので、" +
+                 "止まった瞬間の形からそのまま再開する)。機構に関わらず症状を確実に止める代わりに、" +
+                 "移動中は分身の髪が揺れなくなる。")]
+        public bool freezeClonePbWhileMoving = false;
     }
 }

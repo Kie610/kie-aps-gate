@@ -2,6 +2,23 @@
 
 このファイルの書式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に従う。
 
+## [Unreleased]
+
+### 実験 (既定オフ・実機 A/B 用。結果が出るまでリリースしない)
+
+対象の症状: **分身 (固定体) の揺れものが、本体の移動・回転を慣性として拾う**
+(その場回転で、本体との距離を半径とする円の向きへ髪が流れる = 本体基準の座標系で
+慣性が評価されている)。分身側は既に Immobile AllMotion / 1.0 なのに出る。
+
+- **`immobilizeClonePhysBones`【実験】** — 分身側 PhysBone の Immobile を
+  **World / 1.0** へ強制する。AllMotion の基準は「root の親」で、分身では constraint
+  補正済み = 測る動きが無いため効かない。World の基準はシーンルートで、
+  ワールド固定小物の定石はこちら。本体側の PhysBone には触らない
+- **`freezeClonePbWhileMoving`【実験】** — 自分が移動・回転している間だけ分身側の
+  PhysBone を凍結する (Av3 の VelocityX/Y/Z・AngularY で判定。しきい値 0.1 m/s /
+  15 deg/s)。機構に関わらず症状を止めるフォールバック。移動中は分身の髪が
+  揺れなくなる代わりに、Reset When Disabled 強制オフ済みのため止まった形から再開する
+
 ## [0.5.0-alpha]
 
 「ポーズを固定した瞬間に揺れものがレスト状態になる」を、設定なしで直す回。

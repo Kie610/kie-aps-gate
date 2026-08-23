@@ -3,13 +3,18 @@
 updated: 2026-08-23
 repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-aps-gate (origin = github.com/Kie610/kie-aps-gate)
 work_branch: main
-upstream: origin/main (0.5.0-alpha はローカルのみ・未 push)
+upstream: origin/main (同期済み・0.5.0-alpha は push 済み / Release 未作成)
 base: main@2e1522b
 goal: APS の追従 constraint を未固定中だけ止め、固定時は揺れものを「その場の形」で固める
 
 ## State
 
 complete:
+- C: [Unreleased] 実験フラグ 2 本 (既定オフ・**分身の揺れものが本体の移動・回転を
+  慣性として拾う問題**の実機 A/B 用)。`immobilizeClonePhysBones` = 分身側 PB を
+  Immobile World / 1.0 へ強制 / `freezeClonePbWhileMoving` = 移動・回転中だけ分身 PB を
+  凍結 (Velocity/AngularY 判定・しきい値 0.1 m/s / 15 deg/s)。**A/B の結果が出るまで
+  リリースしない**
 - C: 0.5.0-alpha (ローカル)。「ポーズを固定した瞬間に揺れものがレスト状態になる」を
   設定なしで直した回。APS が固定時に切り替える PhysBone 複製 (`APS_PB`) に限って
   `resetWhenDisabled` を自動で倒す (ゲート有効時の常時動作)。コンポーネント未設置
@@ -18,6 +23,15 @@ complete:
 - C: 既定オフ + コンポーネント / 一括メニューでの有効化 (0.2.0-alpha)
 
 verified:
+- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
+  (DevProject・unity-gate 経由); scope=実験フラグ 2 本の NDMF 実ビルド構造検証
+  (シナリオ C: 分身 73 個の immobileType=World & immobile=1.0 / 凍結レイヤーの FX 合流 /
+  Velocity・AngularY パラメータ / 凍結クリップのカーブ 73 = 分身 PB 全数) + 既存 A/B 回帰;
+  counts=**18 / 18 PASS**。**実機での効果判定は未実施** (下記 not-run)
+- C: 2026-08-23 — evidence: status=PASS; kind=runtime(実機); command=VRChat へ
+  アップロードして目視 (ユーザー実施); scope=固定した瞬間の揺れものの形の保持と
+  解除後の再開、および 2 窓起動のリモート側での見え方; counts=目視 OK
+  (ローカル / リモートとも問題なし)
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode
   -executeMethod ApsGateBuildTest.Run (DevProject); environment=Windows 11 / Unity 2022.3.22f1
   batchmode / NDMF フルビルド (AAO Trace&Optimize はテスト複製から除外);
@@ -31,9 +45,16 @@ verified:
   (固定中ドリフト 0.0°)。0.5.0-alpha の常時強制は同じ機構の適用範囲を変えただけ
 
 not-run:
-- U: 実機 (VRChat) での目視 — 固定した瞬間の揺れものの形の保持と解除後の再開。
-  ユーザーのみ実施可能。手順: Milfy Variant + APS のアバターで、髪を揺らした状態で
-  ポーズ固定 → 形が保たれること / 解除 → その姿勢から揺れが再開すること
+- U: **実験フラグの実機 A/B** (ユーザーのみ実施可能)。手順:
+  1. `kieApsGate` コンポーネントで `immobilizeClonePhysBones` だけ ON → アップロード →
+     体固定 + PB 固定解除 → その場回転・接近・周回で分身の髪の流れを見る
+  2. 直れば案1採用 (凍結フラグは削除)。直らなければ `freezeClonePbWhileMoving` も ON →
+     移動中に凍結されること・停止後に自然へ戻ることを確認
+  3. どちらも不発なら kieApsGate では塞げない結論 → VRChat SDK へフィードバック
+     (最小再現: 素のアバター + MA World Fixed Object の箱 + 髪チェーン PB 1 本、
+     その場回転で流れる)。APS 作者へも「分身 PB へ Immobile World を検討」と報告可能
+- U: 凍結しきい値 (0.1 m/s / 15 deg/s) の実機調整。歩き出しの取りこぼし・
+  微動での発火があれば定数を直す
 
 ## Decisions
 
@@ -50,10 +71,19 @@ not-run:
 - C: 壊れる条件 = APS が複製名 `APS_PB` / m_IsActive 切り替え / FixBody パラメータ名を
   変えたとき。いずれも警告を出して素通し (アバターは壊さない)
 - C: 既定はオフ (0.2.0-alpha の決定・不変)
+- C: 2026-08-23 — 分身慣性問題の設計判断。**「AllMotion ⊇ World だから World は無効」を
+  棄却**: 公式文の両者は包含でなく基準系が別 (AllMotion = root の親 / World = シーン
+  ルート)。分身の親は constraint 補正済みで AllMotion は測る動きが無い = 効かないのが
+  仕様どおりで、World が効く余地は残る (ワールド固定小物の定石とも一致)。撤回済みの
+  Immobile World 案を実験フラグとして復活し、機構非依存の凍結案と実機 A/B する。
+  PB の慣性基準は DLL 非公開 + Emulator 再現不能のため、**A/B 自体を機構検証を兼ねる
+  実験として設計** (推測で単一案に張らない)
 
 ## Next
 
-- 実機目視 (上記 not-run) → 問題なければ Release 手順 (AGENTS.md) へ
+- Release: AGENTS.md の手順 1 (version と CHANGELOG を合わせてコミット) と push は
+  2026-08-23 に完了 (main@bd5030f)。**残りは Actions の `Build Release`
+  (workflow_dispatch) を手で実行するところから**
 - 検証ハーネス: `DevProject/Assets/kieApsGateDebug/` (専用シーン
   kieApsGate_Test.unity + ApsGateBuildTest。AAO T&O はバッチで PhysBone を全削除する
   ためテスト複製から外している)

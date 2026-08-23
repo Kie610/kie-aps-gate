@@ -173,6 +173,28 @@ namespace Kie.ApsGate
                 Debug.Log($"[APS Gate] クローン骨格 '{PathOf(worldFix, root.transform)}' もゲート");
             }
 
+            // == 実験 (A/B): 分身の揺れものが本体の移動・回転を慣性として拾う問題 ==
+            // 機序の仮説: MA のワールド固定は constraint で見た目の位置を打ち消すだけで
+            // Transform の親は本体のまま。PhysBone が constraint 補正前の親の変換
+            // (または注入される playspace 移動量) を慣性として読むと、本体の回転で
+            // r×ω の接線流れが出る。DLL 非公開のため実機 A/B でしか判定できない。
+            if (worldFix != null && settings != null && settings.immobilizeClonePhysBones)
+            {
+                // 案1: Immobile World。AllMotion の基準は「root の親」で、分身では
+                // constraint 補正済み = 測る動きが無いため効かない。World の基準は
+                // シーンルートで、ワールド固定小物の定石はこちら (公式: "negates only
+                // positional movement from the reference of the scene root transform")
+                int n = ForceImmobileWorld(worldFix);
+                Debug.Log($"[APS Gate] 実験: 分身側の PhysBone {n} 個を Immobile World / 1.0 へ強制");
+            }
+            if (worldFix != null && settings != null && settings.freezeClonePbWhileMoving)
+            {
+                // 案2: 移動・回転中だけ分身 PB を凍結。機構に依存せず症状を止める
+                // フォールバック。resetWhenDisabled は上で強制オフ済みなので、
+                // 凍結解除時は止まった瞬間の形から再開する
+                BuildMotionFreezeLayer(ctx, root, worldFix);
+            }
+
             // ゲート対象に PhysBone が入るなら、復帰時に姿勢を捨てないよう
             // resetWhenDisabled を倒しておく。SetActive の前に行うこと。
             if (allowPb)
@@ -333,6 +355,116 @@ namespace Kie.ApsGate
                     return false;
             }
             return true;
+        }
+
+        /// サブツリー内の全 VRCPhysBone の Immobile を World / 1.0 へ強制する。戻り値は変更数。
+        /// 分身 (APS 生成物) 限定で使う — 本体側は作者が部位ごとに調整しているため触らない。
+        private static int ForceImmobileWorld(Transform t)
+        {
+            int changed = 0;
+            foreach (var b in t.GetComponentsInChildren<Behaviour>(true))
+            {
+                if (b == null || b.GetType().Name != "VRCPhysBone") continue;
+                var typeField = b.GetType().GetField("immobileType");
+                var valueField = b.GetType().GetField("immobile");
+                if (typeField == null || valueField == null) continue;
+                typeField.SetValue(b, System.Enum.Parse(typeField.FieldType, "World"));
+                valueField.SetValue(b, 1f);
+                changed++;
+            }
+            return changed;
+        }
+
+        /// 自分が移動・回転している間だけ、分身側の PhysBone (m_Enabled) を切る 1 レイヤー。
+        /// 条件は Av3 組み込みの VelocityX/Y/Z (m/s) と AngularY (deg/s)。
+        /// 静止状態は空クリップで、APS 側の m_Enabled アニメーションへ干渉しない
+        /// (後から合流するレイヤーが、凍結中だけ上書きする)。
+        private static void BuildMotionFreezeLayer(BuildContext ctx, GameObject root, Transform worldFix)
+        {
+            // しきい値は実機調整前の設計値。歩き出し (~2 m/s) と振り向き (~180 deg/s) を
+            // 確実に拾い、立ち話程度の微動では発火しない狙い
+            const float VelT = 0.1f;
+            const float AngT = 15f;
+
+            var pbs = worldFix.GetComponentsInChildren<Behaviour>(true)
+                .Where(b => b != null && b.GetType().Name == "VRCPhysBone")
+                .ToList();
+            if (pbs.Count == 0) return;
+
+            var idle = new AnimationClip { name = "APSGate_FreezeIdle" };
+            var freeze = new AnimationClip { name = "APSGate_FreezeOn" };
+            foreach (var pb in pbs)
+                freeze.SetCurve(PathOf(pb.transform, root.transform), pb.GetType(),
+                    "m_Enabled", AnimationCurve.Constant(0f, 0f, 0f));
+
+            var ac = new AnimatorController { name = "APSGateMotionFreeze" };
+            ac.AddParameter(FixParam, AnimatorControllerParameterType.Bool);
+            foreach (var p in new[] { "VelocityX", "VelocityY", "VelocityZ", "AngularY" })
+                ac.AddParameter(p, AnimatorControllerParameterType.Float);
+            ac.AddLayer("APSGateMotionFreeze");
+            var sm = ac.layers[0].stateMachine;
+
+            var sIdle = sm.AddState("Idle", new Vector2(300, 0));
+            sIdle.motion = idle;
+            sIdle.writeDefaultValues = false;
+            var sFreeze = sm.AddState("Freeze", new Vector2(300, 80));
+            sFreeze.motion = freeze;
+            sFreeze.writeDefaultValues = false;
+            sm.defaultState = sIdle;
+
+            // 動き出し: どれか 1 軸でもしきい値を超えたら凍結 (固定中のみ)
+            foreach (var (param, threshold, greater) in new[]
+                     {
+                         ("VelocityX", VelT, true), ("VelocityX", -VelT, false),
+                         ("VelocityY", VelT, true), ("VelocityY", -VelT, false),
+                         ("VelocityZ", VelT, true), ("VelocityZ", -VelT, false),
+                         ("AngularY", AngT, true), ("AngularY", -AngT, false),
+                     })
+            {
+                var tr = sIdle.AddTransition(sFreeze);
+                tr.hasExitTime = false;
+                tr.duration = 0f;
+                tr.AddCondition(AnimatorConditionMode.If, 0, FixParam);
+                tr.AddCondition(greater ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less,
+                    threshold, param);
+            }
+
+            // 静止: 全軸がしきい値の内側へ戻ったら解除
+            var back = sFreeze.AddTransition(sIdle);
+            back.hasExitTime = false;
+            back.duration = 0f;
+            foreach (var (param, threshold) in new[]
+                     { ("VelocityX", VelT), ("VelocityY", VelT), ("VelocityZ", VelT), ("AngularY", AngT) })
+            {
+                back.AddCondition(AnimatorConditionMode.Less, threshold, param);
+                back.AddCondition(AnimatorConditionMode.Greater, -threshold, param);
+            }
+            // 固定解除でも戻す (APS 側が分身ごと畳むので実害は無いが、状態を残さない)
+            var unfix = sFreeze.AddTransition(sIdle);
+            unfix.hasExitTime = false;
+            unfix.duration = 0f;
+            unfix.AddCondition(AnimatorConditionMode.IfNot, 0, FixParam);
+
+            var layers = ac.layers;
+            layers[0].defaultWeight = 1f;
+            ac.layers = layers;
+
+            ctx.AssetSaver.SaveAsset(idle);
+            ctx.AssetSaver.SaveAsset(freeze);
+            ctx.AssetSaver.SaveAsset(ac);
+            foreach (var l in ac.layers) ctx.AssetSaver.SaveAsset(l.stateMachine);
+
+            var holder = new GameObject("APSGateMotionFreeze");
+            holder.transform.SetParent(root.transform, false);
+            var merge = holder.AddComponent<ModularAvatarMergeAnimator>();
+            merge.animator = ac;
+            merge.layerType = VRCAvatarDescriptor.AnimLayerType.FX;
+            merge.deleteAttachedAnimator = true;
+            merge.pathMode = MergeAnimatorPathMode.Absolute;
+            merge.matchAvatarWriteDefaults = false;
+
+            Debug.Log($"[APS Gate] 実験: 移動・回転中の分身 PB 凍結レイヤーを追加 " +
+                      $"(対象 {pbs.Count} 個・しきい値 {VelT} m/s / {AngT} deg/s)");
         }
 
         /// サブツリー内の全 VRCPhysBone の resetWhenDisabled を false にする。戻り値は変更数。
