@@ -3,7 +3,7 @@
 updated: 2026-08-23
 repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-aps-gate (origin = github.com/Kie610/kie-aps-gate)
 work_branch: main
-upstream: origin/main (同期済み・**1.0.0-beta をリリース済み**・VPM listing へ配信済み)
+upstream: origin/main (同期済み・**1.0.0 をリリース済み**・VPM listing へ配信済み)
 base: main@2e1522b
 goal: APS の追従 constraint を未固定中だけ止め、固定時は揺れものを「その場の形」で固める
 
@@ -132,10 +132,10 @@ not-run:
 
 ## Next
 
-- **1.0.0-beta を 2026-08-23 にリリース済み** (main@6209772)。Actions の `Build Release`
-  と vpm-listing の `Build Repo Listing` まで実行し、
-  https://kie610.github.io/vpm-listing/index.json に 1.0.0-beta が載っていることを確認。
-  **prerelease なので ALCOM の「Show Prerelease Packages」をオンにした利用者にだけ見える**
+- **1.0.0 を 2026-08-23 にリリース済み** (main@1ef0ff0)。VRChat 上での確認を経て
+  beta から内容を変えずに正式版とした。Actions の `Build Release` と vpm-listing の
+  `Build Repo Listing` まで実行し、https://kie610.github.io/vpm-listing/index.json に
+  1.0.0 が載っていることを確認。正式版なので既定の設定の利用者にも見える
 - 機能追加は終了。以後は保守のみ (APS 側の更新への追従と不具合修正)
 - 任意の残件: AlterBody 併用検証 (別アバターが要る) / VRChat SDK へのフィードバック
   (慣性注入。最小再現は CHANGELOG [1.0.0-beta] の調査記録にある)
