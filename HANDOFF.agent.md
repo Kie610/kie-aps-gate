@@ -10,6 +10,11 @@ goal: APS の追従 constraint を未固定中だけ止め、固定時は揺れ�
 ## State
 
 complete:
+- C: 2026-08-23 — **開発終了** (ユーザー決定の条件を充足)。条件 = ExtraBone /
+  PropPlacer 併用で問題なく動作 + 軽量化できていること。実績: DLC 併用ビルド検証
+  22/22 PASS + 実測 -3.14 ms/frame (通常状態 10.93 → 7.79、ゲート 51 個、
+  2026-08-23 の PerfApsGate)。以後は保守のみ (追加機能・仕様変更はしない)。
+  残る任意項目: AlterBody 併用検証 (別アバター要)・SDK フィードバック
 - C: [Unreleased] **実験フラグ 2 本を削除** (ユーザー判断・2026-08-23)。
   実機 A/B の最終結果: 案1 (Immobile World 切替) = 不発確定 / 案2 (移動中凍結) =
   バグ修正後は意図どおり動作したが **UX 上不採用** (動き出しの瞬間の慣性は
@@ -25,6 +30,16 @@ complete:
 - C: 既定オフ + コンポーネント / 一括メニューでの有効化 (0.2.0-alpha)
 
 verified:
+- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
+  (DevProject・unity-gate 経由); scope=**DLC 併用シナリオ C** (ExtraBone + PropPlacer
+  実物を付けて NDMF フルビルド): APS_PB 40 個の reset 強制維持・WorldFix ゲート維持・
+  ゲート層合流・DLC ハンドル (Handle_LastBone_* / Handle_*_Move) 生成無傷;
+  counts=**22 / 22 PASS** (シナリオ A/B 回帰含む)
+- C: 2026-08-23 — evidence: status=PASS; kind=runtime(Play 実測);
+  command=PerfProbe.PerfApsGate.RunAll; scope=0.5.0 構成の CPU 負荷 (Milfy Variant +
+  APS 素置き・非ローカルクローンあり・240 frames 平均・ノイズ床 ±0.07 ms);
+  counts=通常状態 (free) wall 10.93 → 7.79 ms = **-3.14 ms/frame** (ゲート 51 個)、
+  体固定中 11.56 → 10.54、体+PB 固定 10.89 → 9.95
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
   (DevProject・unity-gate 経由); scope=実験フラグ削除後の回帰 (シナリオ A/B +
   実ボーン切替の構造検証 49 constraint); counts=**12 / 12 PASS**
@@ -63,13 +78,17 @@ verified:
 not-run:
 - U: VRChat SDK へのフィードバック (任意・ユーザー判断)。最小再現: 素のアバター +
   MA World Fixed Object の箱 + 髪チェーン PB 1 本、その場回転で流れる
-- U: README への追記 (提案中・未承認): (a) APS の「PB 固定」はアバターの全 PhysBone を
-  止めること + 残したい PB は APS 標準の除外設定 (UnfixPhysBones /
-  UnfixPhysBonesWithChildren / UnfixObjects) を使うこと、
-  (b) `freezePbAtCurrentPose` は除外設定と無関係にアバター全体へ掛かる注意
+- U: AlterBody 併用構成の検証 (別アバターの用意が要るため保留。ExtraBone /
+  PropPlacer 併用はビルド検証済み)
 
 ## Decisions
 
+- C: 2026-08-23 — **製品方針の確定 (ユーザー決定)**: kieApsGate は「APS の仕様を
+  壊さず軽量化する」ことだけを役割とする。**追加機能・仕様を変える変更は不要**。
+  README への APS 仕様解説 (PB 固定の挙動・除外設定の案内) も書かない (APS 標準
+  仕様の複製になるため)。**開発終了条件 = ExtraBone / PropPlacer を併用しても
+  問題なく動作し、かつ軽量化できていること** — 併用ビルド検証と軽量化実測
+  (-1.83 ms/frame・本番ゲート数 53) が揃った時点で開発終了とする
 - C: APS 本体へ手を入れず、NDMF の `AfterPlugin` で後段に挟まる (不変)
 - C: 2026-08-23 — **PB 固定品質はゲート有効時の常時動作** (作り直しはしない判断)。
   機序: APS は全 PhysBone を `APS_PB` 複製へ移して元を破棄し、固定時に複製を
