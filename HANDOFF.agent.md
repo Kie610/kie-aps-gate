@@ -1,7 +1,7 @@
 # Agent handoff v1
 
 updated: 2026-08-23
-repo: D:/GitHub_WorkSpace/VRC/Packages/com.kie.kie-aps-gate (origin = github.com/Kie610/kie-aps-gate)
+repo: D:/GitHub_WorkSpace/VRC/kie-packages/com.kie.kie-aps-gate (origin = github.com/Kie610/kie-aps-gate)
 work_branch: main
 upstream: origin/main (同期済み・**1.0.0 をリリース済み**・VPM listing へ配信済み)
 base: main@2e1522b
@@ -31,7 +31,7 @@ complete:
 
 verified:
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
-  (DevProject・unity-gate 経由); scope=**DLC 併用シナリオ C** (ExtraBone + PropPlacer
+  (avatar-dev・unity-gate 経由); scope=**DLC 併用シナリオ C** (ExtraBone + PropPlacer
   実物を付けて NDMF フルビルド): APS_PB 40 個の reset 強制維持・WorldFix ゲート維持・
   ゲート層合流・DLC ハンドル (Handle_LastBone_* / Handle_*_Move) 生成無傷;
   counts=**22 / 22 PASS** (シナリオ A/B 回帰含む)
@@ -41,13 +41,13 @@ verified:
   counts=通常状態 (free) wall 10.93 → 7.79 ms = **-3.14 ms/frame** (ゲート 51 個)、
   体固定中 11.56 → 10.54、体+PB 固定 10.89 → 9.95
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
-  (DevProject・unity-gate 経由); scope=実験フラグ削除後の回帰 (シナリオ A/B +
+  (avatar-dev・unity-gate 経由); scope=実験フラグ削除後の回帰 (シナリオ A/B +
   実ボーン切替の構造検証 49 constraint); counts=**12 / 12 PASS**
 - C: 2026-08-23 — kind=runtime(実機・ユーザー実施); scope=案2 (移動中凍結) の
   バグ修正後の動作確認; 結果=「歩き出して止まる・立ち止まると動く」を確認 (動作は
   正常)。そのうえで UX 判断により不採用
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
-  (DevProject・unity-gate 経由); scope=round 2 の NDMF 実ビルド構造検証。
+  (avatar-dev・unity-gate 経由); scope=round 2 の NDMF 実ビルド構造検証。
   A: 実ボーン切替 (_Const → fix 骨格) の constraint 49 個 = 機構読解の固定化 + 既存回帰 /
   C: APS_PB 40 : World 複製 40 の 1:1、World/1.0・reset 無効・既定非アクティブ 40/40、
   切替クリップ 80 カーブ (=2N)、凍結クリップ 80 カーブ (=APS_PB+World)、
@@ -57,14 +57,14 @@ verified:
 - C: 2026-08-23 — 実機 A/B round 1 (ユーザー実施): 両フラグとも**不発**。
   対象取り違えが原因 (Decisions 参照)。機構仮説 (Immobile World) の反証にはならない
 - C: 2026-08-23 — DLC 3 種 (ExtraBone 1.0.2 / PropPlacer 2.0.0 / AlterBody 2.1.0) を
-  KonoAsset (D:\DataOkiba\...\_tmp) から DevProject へ導入済み。検索は
-  `_tools/konoasset-search/search.py`
+  KonoAsset (D:\DataOkiba\...\_tmp) から avatar-dev へ導入済み。検索は
+  `tools/konoasset-search/search.py`
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime(実機); command=VRChat へ
   アップロードして目視 (ユーザー実施); scope=固定した瞬間の揺れものの形の保持と
   解除後の再開、および 2 窓起動のリモート側での見え方; counts=目視 OK
   (ローカル / リモートとも問題なし)
 - C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode
-  -executeMethod ApsGateBuildTest.Run (DevProject); environment=Windows 11 / Unity 2022.3.22f1
+  -executeMethod ApsGateBuildTest.Run (avatar-dev); environment=Windows 11 / Unity 2022.3.22f1
   batchmode / NDMF フルビルド (AAO Trace&Optimize はテスト複製から除外);
   scope=Milfy Variant + APS プレハブ素置き (症状の出た構成の再現) のシナリオ 2 本
   (A: コンポーネント有り / B: 無し + プロジェクト全体で有効化);
@@ -139,7 +139,7 @@ not-run:
 - 機能追加は終了。以後は保守のみ (APS 側の更新への追従と不具合修正)
 - 任意の残件: AlterBody 併用検証 (別アバターが要る) / VRChat SDK へのフィードバック
   (慣性注入。最小再現は CHANGELOG [1.0.0-beta] の調査記録にある)
-- 検証ハーネス: `DevProject/Assets/kieApsGateDebug/` (専用シーン
+- 検証ハーネス: `avatar-dev/Assets/kieApsGateDebug/` (専用シーン
   kieApsGate_Test.unity + ApsGateBuildTest。AAO T&O はバッチで PhysBone を全削除する
   ためテスト複製から外している)
 
@@ -147,4 +147,4 @@ not-run:
 
 - C: `Editor/ApsConstraintGate.cs` — 判定・停止・PB 固定品質の実装
 - C: `Runtime/ApsGateSettings.cs` — 利用者が置くコンポーネント
-- C: `../../DevProject/Assets/kieApsGateDebug/` — 検証ハーネス (別リポジトリ)
+- C: `../../avatar-dev/Assets/kieApsGateDebug/` — 検証ハーネス (別リポジトリ)
