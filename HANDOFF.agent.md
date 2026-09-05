@@ -3,7 +3,7 @@
 updated: 2026-08-23
 repo: D:/GitHub_WorkSpace/VRC/kie-packages/com.kie.kie-aps-gate (origin = github.com/Kie610/kie-aps-gate)
 work_branch: main
-upstream: origin/main (同期済み・**1.0.0 をリリース済み**・VPM listing へ配信済み)
+upstream: origin/main (**1.0.0 をリリース済み**・VPM listing へ配信済み・未 push 1 件あり)
 base: main@2e1522b
 goal: APS の追従 constraint を未固定中だけ止め、固定時は揺れものを「その場の形」で固める
 
@@ -25,7 +25,8 @@ complete:
 - C: 0.5.0-alpha (ローカル)。「ポーズを固定した瞬間に揺れものがレスト状態になる」を
   設定なしで直した回。APS が固定時に切り替える PhysBone 複製 (`APS_PB`) に限って
   `resetWhenDisabled` を自動で倒す (ゲート有効時の常時動作)。コンポーネント未設置
-  (プロジェクト全体で有効化) でも効く — 0.4.0-alpha はこの経路で PB 対策が黙って無効だった
+  (プロジェクト全体で有効化) の経路でも同じく `resetWhenDisabled` を倒す。0.4.0-alpha は
+  この経路で PB 対策が黙って無効だった
 - C: 0.4.0-alpha 公開済み (Reset When Disabled で PhysBone サブツリーも安全に落とせる回)
 - C: 既定オフ + コンポーネント / 一括メニューでの有効化 (0.2.0-alpha)
 
@@ -104,8 +105,9 @@ not-run:
 - C: 既定はオフ (0.2.0-alpha の決定・不変)
 - C: 2026-08-23 — 分身慣性問題の設計判断。**「AllMotion ⊇ World だから World は無効」を
   棄却**: 公式文の両者は包含でなく基準系が別 (AllMotion = root の親 / World = シーン
-  ルート)。分身の親は constraint 補正済みで AllMotion は測る動きが無い = 効かないのが
-  仕様どおりで、World が効く余地は残る (ワールド固定小物の定石とも一致)。撤回済みの
+  ルート)。分身の親は constraint 補正済みなので、AllMotion が測る動き自体が無い。これは
+  仕様どおりの挙動である。一方 World はシーンルートを基準に測るため、慣性を止める余地が
+  残っている (ワールド固定小物の定石とも一致)。撤回済みの
   Immobile World 案を実験フラグとして復活し、機構非依存の凍結案と実機 A/B する。
   PB の慣性基準は DLL 非公開 + Emulator 再現不能のため、**A/B 自体を機構検証を兼ねる
   実験として設計** (推測で単一案に張らない)
@@ -113,8 +115,8 @@ not-run:
   APS の体固定は実ボーンの駆動元切替 (BoneProxy + `<骨名>_Const` の constraint、
   AvatarPoseSystemPlugin.cs 2101-2153)。固定体 = 実メッシュ + 実 PB (APS_PB 複製)、
   歩く方 = ゴーストのプロキシ体。APS_WorldFix 配下の 73 個は全てポーズ操作ハンドル
-  (Main 51 / Sub 19 / 専用 3。クロス参照 0)。よって round 1 の不発は Immobile World の
-  反証ではなく対象違い。round 2 は APS_PB を対象に、静的変更でなく**複製の交差切替**
+  (Main 51 / Sub 19 / 専用 3。クロス参照 0)。よって round 1 が不発だったのは、
+  対象を取り違えていたためである (Immobile World 自体は依然有効)。round 2 は APS_PB を対象に、静的変更でなく**複製の交差切替**
   にする (静的に World へ変えると未固定時の通常の髪挙動まで変わるため — APS 作者が
   直さない理由もおそらくこれ)。フィールド名は同名のまま再実装 (未リリースのため
   契約変更に当たらない。「分身の PB」という意味は固定体=実 PB と分かった今むしろ正確)
