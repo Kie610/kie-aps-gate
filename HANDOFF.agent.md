@@ -1,152 +1,58 @@
 # Agent handoff v1
 
-updated: 2026-08-23
+updated: 2026-09-13
 repo: D:/GitHub_WorkSpace/VRC/kie-packages/com.kie.kie-aps-gate (origin = github.com/Kie610/kie-aps-gate)
 work_branch: main
-upstream: origin/main (**1.0.0 をリリース済み**・VPM listing へ配信済み・未 push 1 件あり)
-base: main@2e1522b
+upstream: origin/main@a44fcd3
+base: main@d969dcc
 goal: APS の追従 constraint を未固定中だけ止め、固定時は揺れものを「その場の形」で固める
 
 ## State
 
 complete:
-- C: 2026-08-23 — **開発終了** (ユーザー決定の条件を充足)。条件 = ExtraBone /
-  PropPlacer 併用で問題なく動作 + 軽量化できていること。実績: DLC 併用ビルド検証
-  22/22 PASS + 実測 -3.14 ms/frame (通常状態 10.93 → 7.79、ゲート 51 個、
-  2026-08-23 の PerfApsGate)。以後は保守のみ (追加機能・仕様変更はしない)。
-  残る任意項目: AlterBody 併用検証 (別アバター要)・SDK フィードバック
-- C: [Unreleased] **実験フラグ 2 本を削除** (ユーザー判断・2026-08-23)。
-  実機 A/B の最終結果: 案1 (Immobile World 切替) = 不発確定 / 案2 (移動中凍結) =
-  バグ修正後は意図どおり動作したが **UX 上不採用** (動き出しの瞬間の慣性は
-  凍結が間に合わない + 「移動せず体の部位だけ動かす」場面が実用上まれ)。
-  機序と実測結論は **CHANGELOG [Unreleased] の「調査記録」が正本** (Immobile World は
-  世界固定ボーンへの慣性注入を打ち消さない / 残る道 = SDK フィードバック・
-  ExtraBone ワークフロー)。フィールド削除は契約変更だがユーザー承認済み・未リリース
-- C: 0.5.0-alpha (ローカル)。「ポーズを固定した瞬間に揺れものがレスト状態になる」を
-  設定なしで直した回。APS が固定時に切り替える PhysBone 複製 (`APS_PB`) に限って
-  `resetWhenDisabled` を自動で倒す (ゲート有効時の常時動作)。コンポーネント未設置
-  (プロジェクト全体で有効化) の経路でも同じく `resetWhenDisabled` を倒す。0.4.0-alpha は
-  この経路で PB 対策が黙って無効だった
-- C: 0.4.0-alpha 公開済み (Reset When Disabled で PhysBone サブツリーも安全に落とせる回)
-- C: 既定オフ + コンポーネント / 一括メニューでの有効化 (0.2.0-alpha)
+- A: 2026-08-23 の旧 handoff には 1.0.0 リリース済み、開発終了、0.5.0-alpha の修正済みと記録されている。現在の外部公開状態は今回再確認していない。原文は `docs/handoff-history.md` に保存した。
 
 verified:
-- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
-  (avatar-dev・unity-gate 経由); scope=**DLC 併用シナリオ C** (ExtraBone + PropPlacer
-  実物を付けて NDMF フルビルド): APS_PB 40 個の reset 強制維持・WorldFix ゲート維持・
-  ゲート層合流・DLC ハンドル (Handle_LastBone_* / Handle_*_Move) 生成無傷;
-  counts=**22 / 22 PASS** (シナリオ A/B 回帰含む)
-- C: 2026-08-23 — evidence: status=PASS; kind=runtime(Play 実測);
-  command=PerfProbe.PerfApsGate.RunAll; scope=0.5.0 構成の CPU 負荷 (Milfy Variant +
-  APS 素置き・非ローカルクローンあり・240 frames 平均・ノイズ床 ±0.07 ms);
-  counts=通常状態 (free) wall 10.93 → 7.79 ms = **-3.14 ms/frame** (ゲート 51 個)、
-  体固定中 11.56 → 10.54、体+PB 固定 10.89 → 9.95
-- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
-  (avatar-dev・unity-gate 経由); scope=実験フラグ削除後の回帰 (シナリオ A/B +
-  実ボーン切替の構造検証 49 constraint); counts=**12 / 12 PASS**
-- C: 2026-08-23 — kind=runtime(実機・ユーザー実施); scope=案2 (移動中凍結) の
-  バグ修正後の動作確認; 結果=「歩き出して止まる・立ち止まると動く」を確認 (動作は
-  正常)。そのうえで UX 判断により不採用
-- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=ApsGateBuildTest.Run
-  (avatar-dev・unity-gate 経由); scope=round 2 の NDMF 実ビルド構造検証。
-  A: 実ボーン切替 (_Const → fix 骨格) の constraint 49 個 = 機構読解の固定化 + 既存回帰 /
-  C: APS_PB 40 : World 複製 40 の 1:1、World/1.0・reset 無効・既定非アクティブ 40/40、
-  切替クリップ 80 カーブ (=2N)、凍結クリップ 80 カーブ (=APS_PB+World)、
-  ハンドルへの World 強制ゼロ /
-  D: DLC 併用 (ExtraBone + PropPlacer 実物) でも 1:1 維持・DLC ハンドル生成無傷;
-  counts=**32 / 32 PASS** (シナリオ C/D は実験フラグ削除に伴い撤去済み — 履歴として残す)
-- C: 2026-08-23 — 実機 A/B round 1 (ユーザー実施): 両フラグとも**不発**。
-  対象取り違えが原因 (Decisions 参照)。機構仮説 (Immobile World) の反証にはならない
-- C: 2026-08-23 — DLC 3 種 (ExtraBone 1.0.2 / PropPlacer 2.0.0 / AlterBody 2.1.0) を
-  KonoAsset (D:\DataOkiba\...\_tmp) から avatar-dev へ導入済み。検索は
-  `tools/konoasset-search/search.py`
-- C: 2026-08-23 — evidence: status=PASS; kind=runtime(実機); command=VRChat へ
-  アップロードして目視 (ユーザー実施); scope=固定した瞬間の揺れものの形の保持と
-  解除後の再開、および 2 窓起動のリモート側での見え方; counts=目視 OK
-  (ローカル / リモートとも問題なし)
-- C: 2026-08-23 — evidence: status=PASS; kind=runtime; command=Unity.exe -batchmode
-  -executeMethod ApsGateBuildTest.Run (avatar-dev); environment=Windows 11 / Unity 2022.3.22f1
-  batchmode / NDMF フルビルド (AAO Trace&Optimize はテスト複製から除外);
-  scope=Milfy Variant + APS プレハブ素置き (症状の出た構成の再現) のシナリオ 2 本
-  (A: コンポーネント有り / B: 無し + プロジェクト全体で有効化);
-  counts=passed=11, failed=0。要点: APS_PB 複製 40 個の resetWhenDisabled がすべて false
-  (ON だった 20 個を強制)・A でクローン骨格ゲート + APSGate 層合流 (51 constraint)・
-  B でクローン骨格は非ゲート (73 PB 保護) + 8 constraint
-- C: 2026-08-19 — evidence: status=PASS; kind=runtime; scope=本番アバターでの動作確認; counts=止められたゲート数 53
-- C: 0.4.0-alpha 時の Play 実測: resetWhenDisabled=false なら揺れ物固定で姿勢 100% 保持
-  (固定中ドリフト 0.0°)。0.5.0-alpha の常時強制は同じ機構の適用範囲を変えただけ
+<!-- 過去の自由文記録は現行 evidence fields へ再検証していないため空欄 -->
 
 not-run:
-- U: VRChat SDK へのフィードバック (任意・ユーザー判断)。最小再現: 素のアバター +
-  MA World Fixed Object の箱 + 髪チェーン PB 1 本、その場回転で流れる
-- U: AlterBody 併用構成の検証 (別アバターの用意が要るため保留。ExtraBone /
-  PropPlacer 併用はビルド検証済み)
+- U: U1 過去の runtime 検証記録は、原文に自由文の折返しや旧 counts 表記が含まれるため、status・kind・command・environment・scope・counts をすべて機械的に確定できない。原文は履歴に保存し、今回の再検証は未実施。
+- U: U2 AlterBody 併用検証は別アバターが必要なため保留。
+- U: U3 VRChat SDK へのフィードバックは未実施。
+- U: U4 今回は管理文書のみの更新であり、Unity・compile・runtime・hardware 検証は未実行。
+
+- U: U5 バックアップ保存先未指定のため今回未実施。親AGENTSの対象表に従い、保存先や外部権限を推測で追加しない。
 
 ## Decisions
 
-- C: 2026-08-23 — **製品方針の確定 (ユーザー決定)**: kieApsGate は「APS の仕様を
-  壊さず軽量化する」ことだけを役割とする。**追加機能・仕様を変える変更は不要**。
-  README への APS 仕様解説 (PB 固定の挙動・除外設定の案内) も書かない (APS 標準
-  仕様の複製になるため)。**開発終了条件 = ExtraBone / PropPlacer を併用しても
-  問題なく動作し、かつ軽量化できていること** — 併用ビルド検証と軽量化実測
-  (-1.83 ms/frame・本番ゲート数 53) が揃った時点で開発終了とする
-- C: APS 本体へ手を入れず、NDMF の `AfterPlugin` で後段に挟まる (不変)
-- C: 2026-08-23 — **PB 固定品質はゲート有効時の常時動作** (作り直しはしない判断)。
-  機序: APS は全 PhysBone を `APS_PB` 複製へ移して元を破棄し、固定時に複製を
-  m_IsActive=0 で切る。resetWhenDisabled が ON の複製は切られた瞬間にレスト位置へ
-  戻ってから固まる (ミルフィ 40 個中 20 個が ON = 症状の主因。ゲートした constraint は
-  無関係)。APS 作者自身が reset 強制を一度実装しコメントアウトで利用者判断に
-  委ねている (AvatarPoseSystemPlugin.cs:1607) ため、後段から書くのは設計意図の範囲内
-- C: 対象は APS の生成クリップから引いた複製に限る (他ギミックの PhysBone に触らない)。
-  `freezePbAtCurrentPose` は「アバター全体へ広げる」オプションとして存続。
-  **3 フィールドとも名前・型・既定値は不変** (公開契約変更なし)
-- C: 壊れる条件 = APS が複製名 `APS_PB` / m_IsActive 切り替え / FixBody パラメータ名を
-  変えたとき。いずれも警告を出して素通し (アバターは壊さない)
-- C: 既定はオフ (0.2.0-alpha の決定・不変)
-- C: 2026-08-23 — 分身慣性問題の設計判断。**「AllMotion ⊇ World だから World は無効」を
-  棄却**: 公式文の両者は包含でなく基準系が別 (AllMotion = root の親 / World = シーン
-  ルート)。分身の親は constraint 補正済みなので、AllMotion が測る動き自体が無い。これは
-  仕様どおりの挙動である。一方 World はシーンルートを基準に測るため、慣性を止める余地が
-  残っている (ワールド固定小物の定石とも一致)。撤回済みの
-  Immobile World 案を実験フラグとして復活し、機構非依存の凍結案と実機 A/B する。
-  PB の慣性基準は DLL 非公開 + Emulator 再現不能のため、**A/B 自体を機構検証を兼ねる
-  実験として設計** (推測で単一案に張らない)
-- C: 2026-08-23 — **round 2 の対象再選定** (プラグイン読解 + PB 監査全件集計で確定)。
-  APS の体固定は実ボーンの駆動元切替 (BoneProxy + `<骨名>_Const` の constraint、
-  AvatarPoseSystemPlugin.cs 2101-2153)。固定体 = 実メッシュ + 実 PB (APS_PB 複製)、
-  歩く方 = ゴーストのプロキシ体。APS_WorldFix 配下の 73 個は全てポーズ操作ハンドル
-  (Main 51 / Sub 19 / 専用 3。クロス参照 0)。よって round 1 が不発だったのは、
-  対象を取り違えていたためである (Immobile World 自体は依然有効)。round 2 は APS_PB を対象に、静的変更でなく**複製の交差切替**
-  にする (静的に World へ変えると未固定時の通常の髪挙動まで変わるため — APS 作者が
-  直さない理由もおそらくこれ)。フィールド名は同名のまま再実装 (未リリースのため
-  契約変更に当たらない。「分身の PB」という意味は固定体=実 PB と分かった今むしろ正確)
-- C: 2026-08-23 — **分身慣性問題は「kieApsGate では対策を載せない」で決着**
-  (ユーザー判断)。案1 Immobile World 切替 = 実機で不発確定 (Immobile World は
-  世界固定ボーンへの慣性注入を打ち消さない — 実測)。案2 移動中凍結 = 動作したが
-  UX 上不採用 (動き出しの瞬間は凍結が間に合わない + 対象場面が実用上まれ)。
-  両フラグ削除済み。機序と結論の正本は CHANGELOG [Unreleased] の「調査記録」
-- C: 2026-08-23 — ユーザー仮説の採否: 「ExtraBone があれば PB 固定は不要」=不採用
-  (APS_PB 複製は凍結/解凍切替の実装手段で必要) / 「PB 固定解除の目的=矛盾解消」=
-  一部採用 (「全 PB 一律複製は過剰」は不採用) / 「調整したい PB にだけ ExtraBone」=
-  採用 (推奨ワークフロー。ExtraBone 化したチェーンはハンドル化されライブシミュレーション
-  から外れる = 症状も出ない。AvatarPoseSystemPlugin.cs:1502 で元 PB の root はクローンへ
-  付け替え)
+- C: APS 本体へ手を入れず、NDMF の `AfterPlugin` で後段に挟まる。
+- C: 既定はオフ。`ApsGateSettings` または一括メニューで指定したアバターだけをビルド時に対象にする。
+- C: `APS_PB` の複製に限って `resetWhenDisabled` を扱い、他ギミックの PhysBone には触れない。
+- C: 0.2.0-alpha 以降の公開契約、パッケージ ID、利用者向けフィールド名は `AGENTS.md` を正本とする。
+- C: 追加機能は終了し、以後は APS 側の更新追従と不具合修正を行う。
+- C: 手順パッケージの採否、適合、不採用理由は `docs/handoff-history.md` の `## Migration record` を正本とする。
 
 ## Next
 
-- **1.0.0 を 2026-08-23 にリリース済み** (main@1ef0ff0)。VRChat 上での確認を経て
-  beta から内容を変えずに正式版とした。Actions の `Build Release` と vpm-listing の
-  `Build Repo Listing` まで実行し、https://kie610.github.io/vpm-listing/index.json に
-  1.0.0 が載っていることを確認。正式版なので既定の設定の利用者にも見える
-- 機能追加は終了。以後は保守のみ (APS 側の更新への追従と不具合修正)
-- 任意の残件: AlterBody 併用検証 (別アバターが要る) / VRChat SDK へのフィードバック
-  (慣性注入。最小再現は CHANGELOG [1.0.0-beta] の調査記録にある)
-- 検証ハーネス: `avatar-dev/Assets/kieApsGateDebug/` (専用シーン
-  kieApsGate_Test.unity + ApsGateBuildTest。AAO T&O はバッチで PhysBone を全削除する
-  ためテスト複製から外している)
+- APS 側の更新追従または不具合修正が必要になったら、`AGENTS.md` の契約と `docs/agent-appendix.md` の該当手順を読み、avatar-dev の複製アバターで検証する — blocked-by: none
+- 過去の runtime 証拠を現行 schema で再利用する必要が生じたら、原文と実行ログを照合して不足 fields を埋める — blocked-by: U1
+- AlterBody 併用検証を行う場合は、別アバターを用意してから実施する — blocked-by: U2
 
 ## Paths
 
-- C: `Editor/ApsConstraintGate.cs` — 判定・停止・PB 固定品質の実装
-- C: `Runtime/ApsGateSettings.cs` — 利用者が置くコンポーネント
-- C: `../../avatar-dev/Assets/kieApsGateDebug/` — 検証ハーネス (別リポジトリ)
+- C: `AGENTS.md` — 常時守る規則、公開契約、検証境界、handoff の正本と更新責任。
+- C: `HANDOFF.md` — handoff 文書へのリンクだけを置く index。
+- C: `docs/agent-appendix.md` — 作業別の参照条件、検証、統合と更新手順。
+- C: `docs/handoff-history.md` — 旧 handoff 本文、経緯、手順適用記録。
+- C: `CHANGELOG.md` — リリース履歴と慣性問題の調査記録。
+- C: `Editor/ApsConstraintGate.cs` — 判定・停止・PB 固定品質の実装。
+- C: `Runtime/ApsGateSettings.cs` — 利用者が置くコンポーネント。
+- C: `../../avatar-dev/Assets/kieApsGateDebug/` — 検証ハーネス。
+
+## Resume protocol
+
+1. `AGENTS.md` を読み、実装・仕様・検証の変更対象に応じて `docs/agent-appendix.md` の該当節だけを読む。
+2. 現在の仕様・操作・契約は `AGENTS.md` と `README.md`、リリース経緯は `CHANGELOG.md`、現在の進捗・判断・未解決事項はこの handoff、過去の状態は `docs/handoff-history.md` から直接確認する。
+3. `git status -sb` と live の HEAD/upstream を確認し、既存 dirty を保全する。アバター実装を変更した場合だけ `../../avatar-dev` の複製で compile・runtime・hardware の証拠を分けて記録する。
+4. 子担当は割当範囲だけを変更し、共有状態・検証結果・未解決事項を親へ返す。親が差分と証拠を検品して統合し、handoff の State/Decisions/Next と schema を保つ。
+5. push・公開・Release・外部書込みは別途明示許可がある場合だけ行う。
