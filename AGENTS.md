@@ -63,7 +63,7 @@ Unity の検証は `../../avatar-dev` を開いて行う。APS の実物が要�
 ## Handoff maintenance
 
 現在の状態は `HANDOFF.agent.md` が正本。作業メモをワークスペース直下へ置かない。
-過去の状態・経緯と手順適用記録は `docs/handoff-history.md` に保存する。
+過去の状態・経緯と手順適用記録は Obsidian Vault の `記録/kieApsGate/引き継ぎ履歴/`（`obsidian_semantic_search` か `obsidian_search_notes` の `folder` で引く）に保存する。
 `HANDOFF.agent.md` の更新時は、`C`/`A`/`U`、実行済み検証の件数、未実行項目、`Next` の
 `blocked-by` を明記し、実際の Git 状態を優先する。文書の変更後は
 `C:/Users/Kie/.codex/skills/agent-handoff/scripts/validate_handoff.py --root .` と

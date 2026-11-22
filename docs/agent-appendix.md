@@ -1,6 +1,6 @@
 # Agent appendix
 
-この補遺は `AGENTS.md` から参照する作業別手順の正本です。常時守る規則と公開契約は `AGENTS.md`、現在状態は `HANDOFF.agent.md`、リリース経緯は `CHANGELOG.md` が正本です。過去の本文と手順適用記録は `docs/handoff-history.md` に保存します。
+この補遺は `AGENTS.md` から参照する作業別手順の正本です。常時守る規則と公開契約は `AGENTS.md`、現在状態は `HANDOFF.agent.md`、リリース経緯は `CHANGELOG.md` が正本です。過去の本文と手順適用記録は Obsidian Vault の `記録/kieApsGate/引き継ぎ履歴/` に保存します。
 
 ## 読む条件
 
@@ -14,7 +14,7 @@
 - `AGENTS.md`: 常時守る規則、公開契約、検証境界。担当者が規則または参照条件を変更したとき更新する。
 - `HANDOFF.agent.md`: 現在の State/Decisions/Next。作業担当者が実際の進捗、判断、証拠、未解決事項の変化後に更新する。
 - `HANDOFF.md`: handoff のリンク index。文書の追加・移動時に更新する。
-- `docs/handoff-history.md`: 過去本文と移行記録。root handoff を短縮・schema 変換するとき、原文と procedure を保存する。
+- Obsidian Vault の `記録/kieApsGate/引き継ぎ履歴/`: 過去本文と移行記録。root handoff を短縮・schema 変換するとき、原文と procedure を保存する。
 - `docs/agent-appendix.md`: 作業別の読む条件と統合手順。運用ルールを変更するとき更新する。
 
 ## 検証と真実性
